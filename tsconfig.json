@@ -10,6 +10,6 @@
     "types": ["google-apps-script"],
     "outDir": "./dist"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "build-bookmarklet.js"],
   "exclude": ["src/Config.example.ts", "dist", "node_modules"]
 }
