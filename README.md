@@ -89,6 +89,9 @@ DMMブックスのWebビューアは動的に要素が生成・変化するた�
 ### 3. データ整合性と再利用性を意識したNotion DB構造
 書籍ごとにメモが紐づくだけでなく、「書籍」と「シリーズ」の階層構造もNotion上で自動構築するように設計。重複登録を防ぐ検索クエリロジック（`getOrCreateBookPage`）をバックエンドに組み込んでいます。
 
+### 4. スクリプトプロパティ（PropertiesService）による機密情報の安全な管理
+APIトークンやデータベースIDなどの機密情報をソースコードに直接記述せず、GASの `PropertiesService.getScriptProperties()` を用いて動的に取得する構成を採用。コードと環境変数を分離することで、機密情報の漏洩を防ぎ安全な運用・オープンソース化を実現しています。
+
 ---
 
 ## 🚀 セットアップ・使い方
@@ -106,9 +109,8 @@ git clone https://github.com/<your-username>/<your-repository-name>.git
 cd <your-repository-name>
 npm install
 
-# 設定ファイルのコピーと編集
+# 設定ファイルのコピー
 cp src/Config.example.ts src/Config.ts
-# Config.ts 内の Notion Token, DB ID, DMM API ID 等を設定
 
 # Google (clasp) へのログイン認証
 npx clasp login
@@ -119,6 +121,17 @@ npx clasp login
 # ビルドおよび GAS へのデプロイ
 npm run deploy
 ```
+
+#### スクリプトプロパティの設定
+GASエディタの「プロジェクトの設定」 ⚙️ > 「スクリプト プロパティ」に以下のキーと値を設定します。
+
+| プロパティ名 | 設定値の説明 |
+| :--- | :--- |
+| `NOTION_TOKEN` | Notion API インテグレーションのシークレットトークン (`secret_...`) |
+| `NOTION_BOOK_DB_ID` | 書籍管理用データベースのID |
+| `NOTION_MEMO_DB_ID` | メモ（しおり）管理用データベースのID |
+| `DMM_API_ID` | DMM Affiliate API ID |
+| `DMM_AFFILIATE_ID` | DMM アフィリエイト ID |
 
 ### ブックマークレットの登録
 1. `bookmarklet.ts` 内の `GAS_URL` をデプロイしたGASのWeb App URLに変更。
