@@ -1,0 +1,19 @@
+{
+  "name": "dmmbooks_bookmarklet",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "rm -rf dist && tsc && copyfiles -u 1 src/appsscript.json dist/ && rm -f dist/Config.example.*",
+    "deploy": "npm run build && clasp push"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/google-apps-script": "^2.0.12",
+    "copyfiles": "^2.4.1",
+    "typescript": "^7.0.2"
+  }
+}

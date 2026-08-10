@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "CommonJS",
+    "lib": ["ES2019"],
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "rootDir": "./src",
+    "types": ["google-apps-script"],
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/Config.example.ts", "dist", "node_modules"]
+}

@@ -1,0 +1,21 @@
+# secrets
+src/Config.ts
+.env
+.env.*
+
+# build / deps
+dist/
+node_modules/
+
+# clasp / Google Apps Script
+.clasp.json
+.clasprc.json
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+
+# logs
+npm-debug.log*
+yarn-error.log*
