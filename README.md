@@ -110,6 +110,12 @@ npm install
 cp src/Config.example.ts src/Config.ts
 # Config.ts 内の Notion Token, DB ID, DMM API ID 等を設定
 
+# Google (clasp) へのログイン認証
+npx clasp login
+
+# GASプロジェクトの紐付け (.clasp.json の scriptId を自身のGASプロジェクトIDに設定)
+# 新規作成の場合: npx clasp create --title "DMMBooks Notion Sync" --type webapp --rootDir ./dist
+
 # ビルドおよび GAS へのデプロイ
 npm run deploy
 ```
