@@ -102,8 +102,8 @@ DMMブックスのWebビューアは動的に要素が生成・変化するた�
 
 ```bash
 # クローンと依存パッケージのインストール
-git clone git@github.com:highkeyhaku-code/DMMBooks_Bookmarklet.git
-cd DMMBooks_Bookmarklet
+git clone https://github.com/<your-username>/<your-repository-name>.git
+cd <your-repository-name>
 npm install
 
 # 設定ファイルのコピーと編集
