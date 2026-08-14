@@ -22,7 +22,7 @@ javascript:(function(){
         return match ? parseInt(match[0], 10) : 0;
     }
 
-    // トースト通知を表示する関数（CSSも動的に適用）
+    // トースト通知を表示する関数
     function showToast(message, type = 'success') {
         const existingToast = document.getElementById('dmm-notion-toast');
         if (existingToast) existingToast.remove();
@@ -31,39 +31,36 @@ javascript:(function(){
         toast.id = 'dmm-notion-toast';
         toast.innerText = message;
 
-        // 成功は緑、エラーは赤、情報は青（すべて少しだけ透過させて目立たなくする）
         const bgColor = type === 'success' ? 'rgba(76, 175, 80, 0.9)' : 
                         type === 'error'   ? 'rgba(244, 67, 54, 0.9)' : 
                                              'rgba(33, 150, 243, 0.9)';
 
         Object.assign(toast.style, {
             position: 'fixed',
-            top: '16px',         // 上部配置
-            left: '50%',         // 中央寄せの準備
+            top: '16px',
+            left: '50%',
             backgroundColor: bgColor,
             color: 'white',
-            padding: '6px 16px', // 極小サイズ
-            borderRadius: '20px',// スタイリッシュなピル形状
+            padding: '6px 16px',
+            borderRadius: '20px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            fontSize: '12px',    // 小さなフォント
+            fontSize: '12px',
             fontWeight: 'bold',
             zIndex: '999999',
             opacity: '0',
-            transform: 'translate(-50%, -10px)', // X軸は-50%で中央寄せ、Y軸は少し上に隠す
+            transform: 'translate(-50%, -10px)',
             transition: 'all 0.3s ease-out',
-            pointerEvents: 'none', // ★追加：トーストの下の要素をクリック可能にする
-            whiteSpace: 'nowrap'   // テキストの折り返しを防ぐ
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap'
         });
 
         document.body.appendChild(toast);
 
-        // フワッと下がりながら表示
         requestAnimationFrame(() => {
             toast.style.opacity = '1';
             toast.style.transform = 'translate(-50%, 0)';
         });
 
-        // 2.5秒後にスッと上がりながら消える（読書の邪魔にならないよう少し早めに消す）
         setTimeout(() => {
             toast.style.opacity = '0';
             toast.style.transform = 'translate(-50%, -10px)';
@@ -74,27 +71,22 @@ javascript:(function(){
     // --- オフラインリトライ用キュー管理 ---
     const QUEUE_KEY = 'dmm_notion_retry_queue';
 
-    // キューに保存する
     function saveToQueue(payload) {
         let queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-        payload._timestamp = new Date().toISOString(); // いつ保存したかの記録
+        payload._timestamp = new Date().toISOString();
         queue.push(payload);
         localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
         console.log(`📦 未送信データをローカルに退避しました。現在キュー: ${queue.length}件`);
     }
 
-    // キューから取り出して再送を試みる
     function flushRetryQueue() {
         let queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
         if (queue.length === 0) return;
 
         console.log(`🔄 未送信データ（${queue.length}件）の再送を開始します...`);
-
-        // 一旦キューを空にする（再送失敗したら再びキューに戻すため）
         localStorage.setItem(QUEUE_KEY, JSON.stringify([]));
 
         queue.forEach(payload => {
-            // バックグラウンドで静かに再送
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -104,12 +96,12 @@ javascript:(function(){
             .then(data => console.log("✅ 過去の未送信データを同期しました:", data))
             .catch(err => {
                 console.warn("⚠️ 再送に失敗しました。再度キューに戻します。");
-                saveToQueue(payload); // 失敗したら再びキューへ
+                saveToQueue(payload);
             });
         });
     }
 
-    // --- 更新版: GASへ送信する共通関数 ---
+    // --- GASへ送信する共通関数 ---
     function sendToGAS(payload) {
         payload.itemId = getCid();
         if (!payload.itemId) {
@@ -117,7 +109,6 @@ javascript:(function(){
             return;
         }
 
-        // ★送信前に、溜まっているキューがあれば一緒に流し込む
         flushRetryQueue();
 
         console.log("📤 Notionへ送信中:", payload);
@@ -133,69 +124,129 @@ javascript:(function(){
             return res.json();
         })
         .then(data => {
-            console.log("✅ Notion同期完了:", data);
-            showToast("✅ 保存完了", "success");
+            if(data.status === 'success') {
+                console.log("✅ Notion同期完了:", data);
+                showToast("✅ 保存完了", "success");
+            } else {
+                throw new Error(data.message || "Unknown Error");
+            }
         })
         .catch(err => {
             console.error("❌ Notion同期エラー:", err);
             showToast("❌ 送信エラー (退避済)", "error");
-            // ★ エラー時はキューに保存する
             saveToQueue(payload);
         });
     }
 
-    // ★ ブックマークレット起動時にも一度キューをチェックする
     flushRetryQueue();
 
-    // クリックイベントの監視（Shadow DOM貫通版）
+    // ==========================================
+    // 1. 【新規】フルシンク用のデータ抽出関数
+    // ==========================================
+    function extractAllBookmarks(shadowRoot) {
+        const listItems = shadowRoot.querySelectorAll('li.list-item');
+        const bookmarks = [];
+
+        listItems.forEach(li => {
+            const nameEl = li.querySelector('.bookmark-name');
+            const name = nameEl ? nameEl.innerText.trim() : '';
+
+            const pageSpan = li.querySelector('.bookmark-detail span:not(.date)');
+            const pageMatch = pageSpan ? pageSpan.innerText.match(/\d+/) : null;
+            const pageNum = pageMatch ? parseInt(pageMatch[0], 10) : 0;
+
+            const dateEl = li.querySelector('.bookmark-detail .date');
+            const createdAt = dateEl ? dateEl.innerText.trim() : '';
+
+            // 必須データ（作成日時とページ番号）が揃っている場合のみ配列に追加
+            if (createdAt && pageNum > 0) {
+                bookmarks.push({
+                    name: name,
+                    pageNumber: pageNum,
+                    createdAt: createdAt
+                });
+            }
+        });
+        return bookmarks;
+    }
+
+    // ==========================================
+    // 2. 【改修】MutationObserverによる「しおり一覧」の描画監視 ＋ 差分チェック
+    // ==========================================
+    const publus = document.querySelector('publus-controller');
+    const shadow = publus ? publus.shadowRoot : null;
+
+    if (shadow) {
+        let syncTimeout = null;
+        let lastSyncedBookmarksString = ""; 
+        const targetNode = shadow;
+
+        const observer = new MutationObserver((mutations) => {
+            let isBookmarkListRendered = false;
+            
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList') {
+                    if (shadow.querySelector('li.list-item')) {
+                        isBookmarkListRendered = true;
+                        break;
+                    }
+                }
+            }
+
+            if (isBookmarkListRendered) {
+                clearTimeout(syncTimeout);
+                syncTimeout = setTimeout(() => {
+                    // ★ 新規追加：現在「しおりの名前」を編集中（input要素が存在）なら処理を中断
+                    if (shadow.querySelector('#name-input')) {
+                        // console.log("✏️ しおり編集中のため同期を一時スキップします");
+                        return; 
+                    }
+
+                    const bookmarks = extractAllBookmarks(shadow);
+                    
+                    if (bookmarks.length > 0) {
+                        const currentBookmarksString = JSON.stringify(bookmarks);
+                        
+                        if (currentBookmarksString !== lastSyncedBookmarksString) {
+                            console.log(`🔄 しおりデータの変化を検知。${bookmarks.length}件のフルシンクを開始します。`);
+                            
+                            lastSyncedBookmarksString = currentBookmarksString;
+                            
+                            sendToGAS({ 
+                                action: 'sync', 
+                                bookmarks: bookmarks 
+                            });
+                        }
+                    }
+                }, 500); 
+            }
+        });
+
+        observer.observe(targetNode, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // ==========================================
+    // 3. クリックイベントの監視（トースト通知のみ）
+    // ==========================================
     document.addEventListener('click', function(event) {
-        // 1. publus-controllerのShadow DOMを取得
         const publus = document.querySelector('publus-controller');
         const shadow = publus ? publus.shadowRoot : null;
-        if (!shadow) return; // ビューアが見つからなければ何もしない
+        if (!shadow) return;
 
-        // 2. クリックされた要素の「本当の階層（パス）」を取得
         const path = event.composedPath();
 
-        // 3. 「しおりを追加する」ボタンがパスの中に含まれているかチェック
+        // ① しおり追加時のトースト通知（実際の同期は一覧オープン時のフルシンクに任せる）
         const addBtn = path.find(el => el.matches && el.matches('button[aria-label="今表示しているページの「しおり」を追加する"]'));
         if (addBtn && !addBtn.disabled) {
-            // Shadow DOMの中からページ番号を取得
-            const pageIndicator = shadow.querySelector('.pages-indicator-rect .current');
-            const pageNum = extractPageNum(pageIndicator);
-            sendToGAS({ action: 'create', pageNumber: pageNum });
+            console.log("📝 しおりの追加を検知しました（一覧を開いた時に同期されます）");
+            showToast("✅ しおりを追加しました（一覧オープン時に同期）", "success");
             return;
         }
 
-        // 4. しおり一覧での「確定ボタン」がパスの中に含まれているかチェック
-        const saveBtn = path.find(el => el.matches && el.matches('button[aria-label="このしおりの名前を確定する"]'));
-        if (saveBtn) {
-            const inputElement = shadow.querySelector('#name-input');
-            if (inputElement) {
-                const detailSpan = inputElement.closest('.bookmark-content').querySelector('.bookmark-detail span');
-                const pageNum = extractPageNum(detailSpan);
-                sendToGAS({ action: 'update', pageNumber: pageNum, memoText: inputElement.value });
-            }
-            return;
-        }
-    }, true);
-
-    // Enterキーでの更新監視（Shadow DOM貫通版）
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter') {
-            const publus = document.querySelector('publus-controller');
-            const shadow = publus ? publus.shadowRoot : null;
-            if (!shadow) return;
-
-            // Shadow DOM内でのフォーカスされている要素を取得
-            const activeElement = shadow.activeElement;
-            if (activeElement && activeElement.id === 'name-input') {
-                const detailSpan = activeElement.closest('.bookmark-content').querySelector('.bookmark-detail span');
-                const pageNum = extractPageNum(detailSpan);
-                sendToGAS({ action: 'update', pageNumber: pageNum, memoText: activeElement.value });
-                
-                activeElement.blur(); // フォーカスを外す
-            }
-        }
+        // ※ 編集ボタン（saveBtn）の監視は不要になったため削除
+        // ※ しおり削除ボタンの監視もフルシンクに任せるため不要
     }, true);
 })();
